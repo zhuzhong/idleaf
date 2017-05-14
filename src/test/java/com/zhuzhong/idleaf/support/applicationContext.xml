@@ -24,7 +24,7 @@
 	</bean>
 
 
-	<bean id="idleafServiceImpl" class="com.zhuzhong.idleaf.support.MysqlIdLeafServiceImpl">
+	<bean id="idLeafService" class="com.zhuzhong.idleaf.support.MysqlIdLeafServiceImpl">
 		<property name="jdbcTemplate" ref="jdbcTemplate" />
 	</bean>
 </beans>
