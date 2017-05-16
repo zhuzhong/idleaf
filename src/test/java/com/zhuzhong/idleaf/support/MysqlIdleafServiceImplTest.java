@@ -34,6 +34,12 @@ public class MysqlIdleafServiceImplTest {
 
     private BlockingQueue<Long> queue = new LinkedBlockingQueue<Long>(1000);
 
+    
+    @Test
+    public void synGetId(){
+    	while(true)
+    	  System.out.println(idLeafService.getId());
+    }
     @Test
     public void getId() {
 
@@ -52,7 +58,18 @@ public class MysqlIdleafServiceImplTest {
 
             }
         }.start();
-        new Thread(){
+        
+        while (true) {
+            // System.out.println(idLeafService.getId());
+            try {
+                queue.put(idLeafService.getId());
+            } catch (InterruptedException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+        
+      /*  new Thread(){
             public void run(){
                 while (true) {
                     // System.out.println(idLeafService.getId());
@@ -65,6 +82,6 @@ public class MysqlIdleafServiceImplTest {
                 }
             }
         }.start();
-        System.out.println("ooook");
+        System.out.println("ooook");*/
     }
 }

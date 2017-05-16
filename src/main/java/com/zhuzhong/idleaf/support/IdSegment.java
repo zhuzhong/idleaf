@@ -1,44 +1,55 @@
 package com.zhuzhong.idleaf.support;
 
 public class IdSegment {
-    //private  Long minId;
-    private  Long maxId;
+	private Long minId;
+	private Long maxId;
 
-    private  Long step;
+	private Long step;
 
-    public IdSegment() {
-      
-    }
+	private Long middleId;
 
-    public Long getMinId() {
-        if(this.maxId!=null&&this.step!=null){
-            return this.maxId-this.step;
-        }else{
-            throw new RuntimeException("maxid or step is null");
-        }
-       // return minId;
-    }
+	public IdSegment() {
 
-  /*  public void setMinId(Long minId) {
-        this.minId = minId;
-    }*/
+	}
 
-    public Long getMaxId() {
-        return maxId;
-    }
+	public Long getMiddleId() {
+		
+		if(this.middleId==null){
+			this.middleId=this.maxId-(long) Math.round(step / 2);
+		}
+		return middleId;
+	}
 
-    public void setMaxId(Long maxId) {
-        this.maxId = maxId;
-    }
+	public Long getMinId() {
+		if (this.minId == null) {
+			if (this.maxId != null && this.step != null) {
+				this.minId = this.maxId - this.step;
+			} else {
+				throw new RuntimeException("maxid or step is null");
+			}
+		}
 
-    public Long getStep() {
-        return step;
-    }
+		return minId;
+	}
 
-    public void setStep(Long step) {
-        this.step = step;
-    }
+	/*
+	 * public void setMinId(Long minId) { this.minId = minId; }
+	 */
 
-   
+	public Long getMaxId() {
+		return maxId;
+	}
+
+	public void setMaxId(Long maxId) {
+		this.maxId = maxId;
+	}
+
+	public Long getStep() {
+		return step;
+	}
+
+	public void setStep(Long step) {
+		this.step = step;
+	}
 
 }

@@ -26,5 +26,6 @@
 
 	<bean id="idLeafService" class="com.zhuzhong.idleaf.support.MysqlIdLeafServiceImpl">
 		<property name="jdbcTemplate" ref="jdbcTemplate" />
+		<property name="asynLoadingSegment" value="true" />
 	</bean>
 </beans>
