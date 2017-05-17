@@ -160,12 +160,6 @@ public class MysqlIdleafServiceImplTest {
             }
         }
 
-        /*
-         * new Thread(){ public void run(){ while (true) { //
-         * System.out.println(idLeafService.getId()); try {
-         * queue.put(idLeafService.getId()); } catch (InterruptedException e) {
-         * // TODO Auto-generated catch block e.printStackTrace(); } } }
-         * }.start(); System.out.println("ooook");
-         */
+       
     }
 }

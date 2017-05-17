@@ -27,221 +27,257 @@ import com.zhuzhong.idleaf.IdLeafService;
  */
 public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
 
-	private static Logger log = LoggerFactory
-			.getLogger(MysqlIdLeafServiceImpl.class);
-	private String bizTag;
+    private static Logger log = LoggerFactory.getLogger(MysqlIdLeafServiceImpl.class);
+   
 
-	public void setBizTag(String bizTag) {
-		this.bizTag = bizTag;
-	}
+    public void afterPropertiesSet() throws Exception {
+        if (this.bizTag == null) {
+            throw new RuntimeException("bizTag must be not null");
+        }
+        if (this.jdbcTemplate == null) {
+            throw new RuntimeException("jdbcTemplate must be not null");
+        }
+        this.init();
+        log.info("init run success...");
+    }
 
-	public void afterPropertiesSet() throws Exception {
-		if (this.bizTag == null) {
-			this.bizTag = "ORDER";
-		}
-		if (this.jdbcTemplate == null) {
-			throw new RuntimeException("jdbcTemplate must be not null");
-		}
-		this.init();
-		log.info("init run success...");
-	}
+    public MysqlIdLeafServiceImpl() {
 
-	public MysqlIdLeafServiceImpl() {
+    }
 
-	}
+    private volatile IdSegment[] segment = new IdSegment[2]; // 这两段用来存储每次拉升之后的最大值
+    private volatile boolean sw;
+    private AtomicLong currentId;
+    private static ReentrantLock lock = new ReentrantLock();
 
-	private volatile IdSegment[] segment = new IdSegment[2]; // 这两段用来存储每次拉升之后的最大值
-	private volatile boolean sw;
-	private AtomicLong currentId;
-	private static ReentrantLock lock = new ReentrantLock();
+    // private static Condition swContion = lock.newCondition();
 
-	// private static Condition swContion = lock.newCondition();
+    private void init() {
+        segment[0] = doUpdateNextSegment(bizTag);
+        // segment[1] = doUpdateNextSegment(bizTag);
+        setSw(false);
+        currentId = new AtomicLong(segment[index()].getMinId()); // 初始id
 
-	private void init() {
-		segment[0] = doUpdateNextSegment(bizTag);
-		//segment[1] = doUpdateNextSegment(bizTag);
-		setSw(false);
-		currentId = new AtomicLong(segment[index()].getMinId()); // 初始id
+    }
 
-	}
+    // 创建线程池
+    ExecutorService es = Executors.newSingleThreadExecutor();
+    FutureTask<Boolean> asynLoadSegmentTask = null;
 
-	// 创建线程池
-	ExecutorService es = Executors.newSingleThreadExecutor();
-	FutureTask<Boolean> asynLoadSegmentTask = null;
+    private Long asynGetId() {
 
-	private Long asynGetId() {
+        if (segment[index()].getMiddleId().equals(currentId.longValue())
+                || segment[index()].getMaxId().equals(currentId.longValue())) {
+            try {
+                lock.lock();
+                if (segment[index()].getMiddleId().equals(currentId.longValue())) {
+                    // 前一段使用了50%
 
-		if (segment[index()].getMiddleId().equals(currentId.longValue())||segment[index()].getMaxId().equals(currentId.longValue())) {
-			try {
-				lock.lock();
-				if (segment[index()].getMiddleId()
-						.equals(currentId.longValue())) {
-					// 前一段使用了50%
+                    asynLoadSegmentTask = new FutureTask<>(new Callable<Boolean>() {
 
-					asynLoadSegmentTask = new FutureTask<>(
-							new Callable<Boolean>() {
+                        @Override
+                        public Boolean call() throws Exception {
+                            final int currentIndex = reIndex();
+                            segment[currentIndex] = doUpdateNextSegment(bizTag);
+                            return true;
+                        }
 
-								@Override
-								public Boolean call() throws Exception {
-									final int currentIndex = reIndex();
-									segment[currentIndex] = doUpdateNextSegment(bizTag);
-									return true;
-								}
+                    });
+                    es.submit(asynLoadSegmentTask);
+                }
+                if (segment[index()].getMaxId().equals(currentId.longValue())) {
 
-							});
-					es.submit(asynLoadSegmentTask);
-				}
-				if (segment[index()].getMaxId().equals(currentId.longValue())) {
+                    /*
+                     * final int currentIndex = index(); segment[currentIndex] =
+                     * doUpdateNextSegment(bizTag);
+                     */
+                    boolean loadingResult;
+                    try {
+                        loadingResult = asynLoadSegmentTask.get();
+                        if (loadingResult) {
+                            setSw(!isSw()); // 切换
+                            currentId = new AtomicLong(segment[index()].getMinId()); // 进行切换
+                        }
+                    } catch (InterruptedException e) {
 
-					/*
-					 * final int currentIndex = index(); segment[currentIndex] =
-					 * doUpdateNextSegment(bizTag);
-					 */
-					boolean loadingResult;
-					try {
-						loadingResult = asynLoadSegmentTask.get();
-						if (loadingResult) {
-							setSw(!isSw()); // 切换
-							currentId = new AtomicLong(
-									segment[index()].getMinId()); // 进行切换
-						}
-					} catch (InterruptedException e) {
+                        e.printStackTrace();
+                        // 强制同步切换　
+                        final int currentIndex = reIndex();
+                        segment[currentIndex] = doUpdateNextSegment(bizTag);
+                        setSw(!isSw()); // 切换
+                        currentId = new AtomicLong(segment[index()].getMinId()); // 进行切换
+                    } catch (ExecutionException e) {
 
-						e.printStackTrace();
-						// 强制同步切换　
-						final int currentIndex = reIndex();
-						segment[currentIndex] = doUpdateNextSegment(bizTag);
-						setSw(!isSw()); // 切换
-						currentId = new AtomicLong(segment[index()].getMinId()); // 进行切换
-					} catch (ExecutionException e) {
+                        e.printStackTrace();
+                        // 强制同步切换　
+                        final int currentIndex = reIndex();
+                        segment[currentIndex] = doUpdateNextSegment(bizTag);
+                        setSw(!isSw()); // 切换
+                        currentId = new AtomicLong(segment[index()].getMinId()); // 进行切换
+                    }
 
-						e.printStackTrace();
-						// 强制同步切换　
-						final int currentIndex = reIndex();
-						segment[currentIndex] = doUpdateNextSegment(bizTag);
-						setSw(!isSw()); // 切换
-						currentId = new AtomicLong(segment[index()].getMinId()); // 进行切换
-					}
+                }
 
-				}
+            } finally {
+                lock.unlock();
+            }
+        }
 
-			} finally {
-				lock.unlock();
-			}
-		}
+        return currentId.incrementAndGet();
 
-		return currentId.incrementAndGet();
+    }
 
-	}
+    private int reIndex() {
+        if (isSw()) {
+            return 0;
+        } else {
+            return 1;
+        }
+    }
 
-	private int reIndex() {
-		if (isSw()) {
-			return 0;
-		} else {
-			return 1;
-		}
-	}
+    private Long synGetId() {
+        if (segment[index()].getMiddleId().equals(currentId.longValue())
+                || segment[index()].getMaxId().equals(currentId.longValue())) {
+            try {
+                lock.lock();
+                
+                if (segment[index()].getMiddleId().equals(currentId.longValue())) {
+                    //使用50%进行加载
+                    final int currentIndex = reIndex();
+                    segment[currentIndex] = doUpdateNextSegment(bizTag);
+                }
+                
+                if (segment[index()].getMaxId().equals(currentId.longValue())) {
+                    setSw(!isSw()); // 切换
+                    currentId = new AtomicLong(segment[index()].getMinId()); // 进行切换
 
-	private Long synGetId() {
-		if (segment[index()].getMaxId().equals(currentId.longValue())) {
-			try {
-				lock.lock();
-				if (segment[index()].getMaxId().equals(currentId.longValue())) {
+                }
 
-					final int currentIndex = index();
-					segment[currentIndex] = doUpdateNextSegment(bizTag);
+            } finally {
+                lock.unlock();
+            }
+        }
 
-					setSw(!isSw()); // 切换
-					currentId = new AtomicLong(segment[index()].getMinId()); // 进行切换
+        return currentId.incrementAndGet();
+    }
 
-				}
+    @Override
+    public Long getId() {
+        if (asynLoadingSegment) {
+            return asynGetId();
+        } else {
+            return synGetId();
+        }
+    }
 
-			} finally {
-				lock.unlock();
-			}
-		}
+  
 
-		return currentId.incrementAndGet();
-	}
+    private boolean isSw() {
+        return sw;
+    }
 
-	@Override
-	public Long getId() {
-		if (asynLoadingSegment) {
-			return asynGetId();
-		} else {
-			return synGetId();
-		}
-	}
+    private void setSw(boolean sw) {
+        this.sw = sw;
+    }
 
-	private boolean asynLoadingSegment;
+    private int index() {
+        if (isSw()) {
+            return 1;
+        } else {
+            return 0;
+        }
+    }
 
-	public void setAsynLoadingSegment(boolean asynLoadingSegment) {
-		this.asynLoadingSegment = asynLoadingSegment;
-	}
+   
 
-	private boolean isSw() {
-		return sw;
-	}
+    private IdSegment doUpdateNextSegment(String bizTag) {
+        try {
+            return updateId(bizTag);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
 
-	private void setSw(boolean sw) {
-		this.sw = sw;
-	}
+    private IdSegment updateId(String bizTag) throws Exception {
+        String querySql =String.format("select %s as  p_step , %s as  max_id  from %s where %s=?", stepField,
+                maxIdField,tableName,this.bizTagField);
+       // String querySql = "select p_step ,max_id  from id_segment where biz_tag=?";
+      //  String updateSql = "update id_segment set max_id=? where biz_tag=? and max_id=?";
+        String updateSql=String.format("update %s set %s=? where %s=? and %s=?", 
+                tableName,maxIdField,bizTagField,maxIdField);
+                
+        final IdSegment currentSegment = new IdSegment();
+        this.jdbcTemplate.query(querySql, new String[] { bizTag }, new RowCallbackHandler() {
 
-	private int index() {
-		if (isSw()) {
-			return 1;
-		} else {
-			return 0;
-		}
-	}
+            @Override
+            public void processRow(ResultSet rs) throws SQLException {
 
-	private JdbcTemplate jdbcTemplate;
+                Long step = null;
+                Long currentMaxId = null;
+                step = rs.getLong("p_step");
+                currentMaxId = rs.getLong("max_id");
+                currentSegment.setStep(step);
+                currentSegment.setMaxId(currentMaxId);
 
-	public void setJdbcTemplate(JdbcTemplate jdbcTemplate) {
-		this.jdbcTemplate = jdbcTemplate;
-	}
+            }
+        });
+        Long newMaxId = currentSegment.getMaxId() + currentSegment.getStep();
+        int row = this.jdbcTemplate.update(updateSql, new Object[] { newMaxId, bizTag, currentSegment.getMaxId() });
+        if (row == 1) {
+            IdSegment newSegment = new IdSegment();
+            newSegment.setStep(currentSegment.getStep());
+            newSegment.setMaxId(newMaxId);
 
-	private IdSegment doUpdateNextSegment(String bizTag) {
-		try {
-			return updateId(bizTag);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return null;
-	}
+            return newSegment;
+        } else {
+            return updateId(bizTag); // 递归，直至更新成功
+        }
 
-	private IdSegment updateId(String bizTag) throws Exception {
-		String querySql = "select p_step ,max_id  from id_segment where biz_tag=?";
-		String updateSql = "update id_segment set max_id=? where biz_tag=? and max_id=?";
+    }
+    
+    
+    
+    private JdbcTemplate jdbcTemplate;
 
-		final IdSegment currentSegment = new IdSegment();
-		this.jdbcTemplate.query(querySql, new String[] { bizTag },
-				new RowCallbackHandler() {
+    public void setJdbcTemplate(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+    
+    private String bizTag;
 
-					@Override
-					public void processRow(ResultSet rs) throws SQLException {
+    public void setBizTag(String bizTag) {
+        this.bizTag = bizTag;
+    }
+    
+    private boolean asynLoadingSegment;
 
-						Long step = null;
-						Long currentMaxId = null;
-						step = rs.getLong("p_step");
-						currentMaxId = rs.getLong("max_id");
-						currentSegment.setStep(step);
-						currentSegment.setMaxId(currentMaxId);
+    public void setAsynLoadingSegment(boolean asynLoadingSegment) {
+        this.asynLoadingSegment = asynLoadingSegment;
+    }
+    
+    private String stepField;
+    private String maxIdField;
+    private String tableName;
+    
+    private String bizTagField;
 
-					}
-				});
-		Long newMaxId = currentSegment.getMaxId() + currentSegment.getStep();
-		int row = this.jdbcTemplate.update(updateSql, new Object[] { newMaxId,
-				bizTag, currentSegment.getMaxId() });
-		if (row == 1) {
-			IdSegment newSegment = new IdSegment();
-			newSegment.setStep(currentSegment.getStep());
-			newSegment.setMaxId(newMaxId);
 
-			return newSegment;
-		} else {
-			return updateId(bizTag); // 递归，直至更新成功
-		}
+    public void setStepField(String stepField) {
+        this.stepField = stepField;
+    }
 
-	}
+    public void setMaxIdField(String maxIdField) {
+        this.maxIdField = maxIdField;
+    }
+
+    public void setTableName(String tableName) {
+        this.tableName = tableName;
+    }
+
+    public void setBizTagField(String bizTagField) {
+        this.bizTagField = bizTagField;
+    }
+    
+    
 }
