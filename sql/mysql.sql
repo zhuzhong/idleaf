@@ -8,7 +8,7 @@ p_step bigint(20) comment '步长' )
 engine=InnoDB default charset=utf8 comment '号段存储表';
 
 
-insert into id_segment(biz_tag,max_id,p_step)values('ORDER',0,20);
+insert into id_segment(biz_tag,max_id,p_step)values('order',0,20);
 
 
 alter table id_segment add last_update_time datetime;
