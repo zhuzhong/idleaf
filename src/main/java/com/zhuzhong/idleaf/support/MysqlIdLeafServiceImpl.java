@@ -5,6 +5,7 @@ package com.zhuzhong.idleaf.support;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Date;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -28,7 +29,6 @@ import com.zhuzhong.idleaf.IdLeafService;
 public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
 
     private static Logger log = LoggerFactory.getLogger(MysqlIdLeafServiceImpl.class);
-   
 
     public void afterPropertiesSet() throws Exception {
         if (this.bizTag == null) {
@@ -140,13 +140,13 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
                 || segment[index()].getMaxId().equals(currentId.longValue())) {
             try {
                 lock.lock();
-                
+
                 if (segment[index()].getMiddleId().equals(currentId.longValue())) {
-                    //使用50%进行加载
+                    // 使用50%进行加载
                     final int currentIndex = reIndex();
                     segment[currentIndex] = doUpdateNextSegment(bizTag);
                 }
-                
+
                 if (segment[index()].getMaxId().equals(currentId.longValue())) {
                     setSw(!isSw()); // 切换
                     currentId = new AtomicLong(segment[index()].getMinId()); // 进行切换
@@ -170,8 +170,6 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
         }
     }
 
-  
-
     private boolean isSw() {
         return sw;
     }
@@ -188,8 +186,6 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
         }
     }
 
-   
-
     private IdSegment doUpdateNextSegment(String bizTag) {
         try {
             return updateId(bizTag);
@@ -200,13 +196,18 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
     }
 
     private IdSegment updateId(String bizTag) throws Exception {
-        String querySql =String.format("select %s as  p_step , %s as  max_id  from %s where %s=?", stepField,
-                maxIdField,tableName,this.bizTagField);
-       // String querySql = "select p_step ,max_id  from id_segment where biz_tag=?";
-      //  String updateSql = "update id_segment set max_id=? where biz_tag=? and max_id=?";
-        String updateSql=String.format("update %s set %s=? where %s=? and %s=?", 
-                tableName,maxIdField,bizTagField,maxIdField);
-                
+        /*
+         * String querySql
+         * =String.format("select %s as  p_step , %s as  max_id  from %s where %s=?"
+         * , stepField, maxIdField,tableName,this.bizTagField);
+         */
+        String querySql = "select p_step ,max_id ,last_update_time,current_update_time from id_segment where biz_tag=?";
+        String updateSql = "update id_segment set max_id=?,last_update_time=?,current_update_time=now() where biz_tag=? and max_id=?";
+        /*
+         * String
+         * updateSql=String.format("update %s set %s=? where %s=? and %s=?",
+         * tableName,maxIdField,bizTagField,maxIdField);
+         */
         final IdSegment currentSegment = new IdSegment();
         this.jdbcTemplate.query(querySql, new String[] { bizTag }, new RowCallbackHandler() {
 
@@ -217,13 +218,18 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
                 Long currentMaxId = null;
                 step = rs.getLong("p_step");
                 currentMaxId = rs.getLong("max_id");
+                Date lastUpdateTime = (java.util.Date) rs.getTimestamp("last_update_time");
+                Date currentUpdateTime = (java.util.Date) rs.getTimestamp("current_update_time");
                 currentSegment.setStep(step);
                 currentSegment.setMaxId(currentMaxId);
+                currentSegment.setLastUpdateTime(lastUpdateTime);
+                currentSegment.setCurrentUpdateTime(currentUpdateTime);
 
             }
         });
         Long newMaxId = currentSegment.getMaxId() + currentSegment.getStep();
-        int row = this.jdbcTemplate.update(updateSql, new Object[] { newMaxId, bizTag, currentSegment.getMaxId() });
+        int row = this.jdbcTemplate.update(updateSql, 
+                new Object[] { newMaxId, currentSegment.getCurrentUpdateTime(),bizTag, currentSegment.getMaxId() });
         if (row == 1) {
             IdSegment newSegment = new IdSegment();
             newSegment.setStep(currentSegment.getStep());
@@ -235,49 +241,44 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
         }
 
     }
-    
-    
-    
+
     private JdbcTemplate jdbcTemplate;
 
     public void setJdbcTemplate(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
-    
+
     private String bizTag;
 
     public void setBizTag(String bizTag) {
         this.bizTag = bizTag;
     }
-    
+
     private boolean asynLoadingSegment;
 
     public void setAsynLoadingSegment(boolean asynLoadingSegment) {
         this.asynLoadingSegment = asynLoadingSegment;
     }
-    
-    private String stepField;
-    private String maxIdField;
-    private String tableName;
-    
-    private String bizTagField;
 
+    /*
+     * private String stepField; private String maxIdField; private String
+     * tableName;
+     * 
+     * private String bizTagField;
+     */
 
-    public void setStepField(String stepField) {
-        this.stepField = stepField;
-    }
+    /*
+     * public void setStepField(String stepField) { this.stepField = stepField;
+     * }
+     * 
+     * public void setMaxIdField(String maxIdField) { this.maxIdField =
+     * maxIdField; }
+     * 
+     * public void setTableName(String tableName) { this.tableName = tableName;
+     * }
+     * 
+     * public void setBizTagField(String bizTagField) { this.bizTagField =
+     * bizTagField; }
+     */
 
-    public void setMaxIdField(String maxIdField) {
-        this.maxIdField = maxIdField;
-    }
-
-    public void setTableName(String tableName) {
-        this.tableName = tableName;
-    }
-
-    public void setBizTagField(String bizTagField) {
-        this.bizTagField = bizTagField;
-    }
-    
-    
 }

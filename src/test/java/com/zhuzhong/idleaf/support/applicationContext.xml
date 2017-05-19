@@ -24,29 +24,36 @@
 	</bean>
 
 
-	<bean id="idLeafService" class="com.zhuzhong.idleaf.support.MysqlIdLeafServiceImpl">
+	<bean id="orderIdLeafService" class="com.zhuzhong.idleaf.support.MysqlIdLeafServiceImpl">
 		<property name="jdbcTemplate" ref="jdbcTemplate" />
 		<property name="asynLoadingSegment" value="true" />
 		<property name="bizTag" value="ORDER"></property>
-		<property name="stepField" value="p_step" />
-		<property name="maxIdField" value="max_id" />
-		<property name="bizTagField" value="biz_tag" />
-		<property name="tableName" value="id_segment" />
+		<!-- <property name="stepField" value="p_step" /> <property name="maxIdField" 
+			value="max_id" /> <property name="bizTagField" value="biz_tag" /> <property 
+			name="tableName" value="id_segment" /> -->
 	</bean>
-	
-	 <bean id="transactionManager" 
-        class="org.springframework.jdbc.datasource.DataSourceTransactionManager"> 
-        <property name="dataSource" ref="testDataSource" /> 
-    </bean>
-    
-    
-     <bean id="transactionTemplate"  
-        class="org.springframework.transaction.support.TransactionTemplate">  
-        <property name="transactionManager" ref="transactionManager" />  
-        <!--ISOLATION_DEFAULT 表示由使用的数据库决定  -->  
-        <property name="isolationLevelName" value="ISOLATION_DEFAULT"/>  
-        <property name="propagationBehaviorName" value="PROPAGATION_REQUIRED"/>  
-        <!-- <property name="timeout" value="30"/> -->  
-    </bean>  
-    
+
+
+	<bean id="idLeafService" class="com.zhuzhong.idleaf.support.FacadeIdLeafServiceImpl">
+		<constructor-arg>
+			<map>
+				<entry key="ORDER" value-ref="orderIdLeafService" />
+			</map>
+		</constructor-arg>
+	</bean>
+	<bean id="transactionManager"
+		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="testDataSource" />
+	</bean>
+
+
+	<bean id="transactionTemplate"
+		class="org.springframework.transaction.support.TransactionTemplate">
+		<property name="transactionManager" ref="transactionManager" />
+		<!--ISOLATION_DEFAULT 表示由使用的数据库决定 -->
+		<property name="isolationLevelName" value="ISOLATION_DEFAULT" />
+		<property name="propagationBehaviorName" value="PROPAGATION_REQUIRED" />
+		<!-- <property name="timeout" value="30"/> -->
+	</bean>
+
 </beans>
