@@ -9,8 +9,7 @@ Leaf-segment数据库方案 生成唯一orderId的方案的一个实现。
 在第一个buffer使用完毕之后，切换到另一个buffer，需要去验证该buffer是否加载完成数据，然后进行切换（对于异步加载出了异常则同步加载数据，然后再切换，此时会产生发号的阻塞）。
 
 
-##增加facade类
-增加FacaIdLeafService类支持更多的业务分类id获取
+
 
 ##使用示例
 ###一种业务id使用方式
@@ -43,3 +42,47 @@ Leaf-segment数据库方案 生成唯一orderId的方案的一个实现。
 
     Long orderId=orderIdLeafService.getId();
 	Long productId=productIdLeafService.getId();
+
+##spring提供的关于主键生成的策略
+
+spring 框架是无所不能，关于主键的生成它也提供了类似的功能，相应的类为org.springframework.jdbc.support.incrementer.MySQLMaxValueIncrementer
+但是这个类只保证单jvm的唯一性，在集群环中它会有并发更新的问题，所以我在此写了一个ExtendMySQLMaxValueIncrementer。思路还是沿袭上面的。
+###使用示例
+	<bean id="extendMysqlMaxValueIncrementer" abstract="true"
+		class="com.zhuzhong.idleaf.support.ExtendMySQLMaxValueIncrementer">
+		<property name="dataSource" ref="testDataSource" />
+		<property name="asynLoadingSegment" value="true"></property>
+		<property name="incrementerName" value="id_segment" />
+		<property name="columnName" value="max_id" />
+		<property name="stepField" value="p_step" />
+		<property name="bizField" value="biz_tag"></property>
+		<property name="lastUpdateTimeField" value="last_update_time" />
+		<property name="updateTimeField" value="current_update_time" />
+		<property name="paddingLength" value="6"></property>
+
+	</bean>
+
+	<bean id="orderIncrementer" parent="extendMysqlMaxValueIncrementer">
+		<property name="bizTag" value="order" />
+	</bean>
+	
+	<bean id="productNoIncrementer" parent="extendMysqlMaxValueIncrementer">
+		<property name="bizTag" value="productNo" />
+	</bean>
+
+	 @Autowired
+    @Qualifier("productNoIncrementer")
+    private DataFieldMaxValueIncrementer incrementer;
+
+    @Test
+    public void test() {
+        int i = 0;
+        while (i < 10) {
+            System.out.println("long id=" + incrementer.nextLongValue());
+            System.out.println("int id=" + incrementer.nextIntValue());
+            System.out.println("string id=" + incrementer.nextStringValue());
+            i++;
+        }
+    }
+
+spring 帮我们提供了三个接口，分别为获取int,long,string 三种数据类型。当然这种方式需要深度使用spring-jdbc框架.
