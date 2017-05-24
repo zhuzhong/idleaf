@@ -14,57 +14,61 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
+import javax.sql.DataSource;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.InitializingBean;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
-
-import com.zhuzhong.idleaf.IdLeafService;
+import org.springframework.jdbc.support.incrementer.AbstractColumnMaxValueIncrementer;
 
 /**
  * @author sunff
  * 
  */
-public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
+public class ExtendMySQLMaxValueIncrementer extends AbstractColumnMaxValueIncrementer {
 
-    private static Logger log = LoggerFactory.getLogger(MysqlIdLeafServiceImpl.class);
+    /**
+     * Default constructor for bean property style usage.
+     * 
+     * @see #setDataSource
+     * @see #setIncrementerName
+     * @see #setColumnName
+     */
+    public ExtendMySQLMaxValueIncrementer() {
+    }
 
-    public void afterPropertiesSet() throws Exception {
-        if (this.bizTag == null) {
-            throw new RuntimeException("bizTag must be not null");
+    /**
+     * Convenience constructor.
+     * 
+     * @param dataSource
+     *            the DataSource to use
+     * @param incrementerName
+     *            the name of the sequence/table to use
+     * @param columnName
+     *            the name of the column in the sequence table to use
+     */
+    public ExtendMySQLMaxValueIncrementer(DataSource dataSource, String incrementerName, String columnName) {
+        super(dataSource, incrementerName, columnName);
+    }
+
+    @Override
+    protected long getNextKey() throws DataAccessException {
+        if (asynLoadingSegment) {
+            return asynGetId();
+        } else {
+            return synGetId();
         }
-        if (this.jdbcTemplate == null) {
-            throw new RuntimeException("jdbcTemplate must be not null");
-        }
-        this.init();
-        log.info("init run success...");
     }
 
-    public MysqlIdLeafServiceImpl() {
-
-    }
-
-    private volatile IdSegment[] segment = new IdSegment[2]; // 这两段用来存储每次拉升之后的最大值
-    private volatile boolean sw;
-    private AtomicLong currentId;
-    private static ReentrantLock lock = new ReentrantLock();
-
-    // private static Condition swContion = lock.newCondition();
-
-    private void init() {
-        segment[0] = doUpdateNextSegment(bizTag);
-        // segment[1] = doUpdateNextSegment(bizTag);
-        setSw(false);
-        currentId = new AtomicLong(segment[index()].getMinId()); // 初始id
-
-    }
+    // ------------------
 
     // 创建线程池
-    ExecutorService es = Executors.newSingleThreadExecutor();
-    FutureTask<Boolean> asynLoadSegmentTask = null;
+    private static ExecutorService es = Executors.newSingleThreadExecutor();
+    private FutureTask<Boolean> asynLoadSegmentTask = null;
 
-    private Long asynGetId() {
+    private long asynGetId() {
 
         if (segment[index()].getMiddleId().equals(currentId.longValue())
                 || segment[index()].getMaxId().equals(currentId.longValue())) {
@@ -78,7 +82,7 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
                         @Override
                         public Boolean call() throws Exception {
                             final int currentIndex = reIndex();
-                            segment[currentIndex] = doUpdateNextSegment(bizTag);
+                            segment[currentIndex] = doUpdateNextSegment();
                             return true;
                         }
 
@@ -87,10 +91,6 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
                 }
                 if (segment[index()].getMaxId().equals(currentId.longValue())) {
 
-                    /*
-                     * final int currentIndex = index(); segment[currentIndex] =
-                     * doUpdateNextSegment(bizTag);
-                     */
                     boolean loadingResult;
                     try {
                         loadingResult = asynLoadSegmentTask.get();
@@ -103,7 +103,7 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
                         e.printStackTrace();
                         // 强制同步切换　
                         final int currentIndex = reIndex();
-                        segment[currentIndex] = doUpdateNextSegment(bizTag);
+                        segment[currentIndex] = doUpdateNextSegment();
                         setSw(!isSw()); // 切换
                         currentId = new AtomicLong(segment[index()].getMinId()); // 进行切换
                     } catch (ExecutionException e) {
@@ -111,7 +111,7 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
                         e.printStackTrace();
                         // 强制同步切换　
                         final int currentIndex = reIndex();
-                        segment[currentIndex] = doUpdateNextSegment(bizTag);
+                        segment[currentIndex] = doUpdateNextSegment();
                         setSw(!isSw()); // 切换
                         currentId = new AtomicLong(segment[index()].getMinId()); // 进行切换
                     }
@@ -135,7 +135,7 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
         }
     }
 
-    private Long synGetId() {
+    private long synGetId() {
         if (segment[index()].getMiddleId().equals(currentId.longValue())
                 || segment[index()].getMaxId().equals(currentId.longValue())) {
             try {
@@ -144,7 +144,7 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
                 if (segment[index()].getMiddleId().equals(currentId.longValue())) {
                     // 使用50%进行加载
                     final int currentIndex = reIndex();
-                    segment[currentIndex] = doUpdateNextSegment(bizTag);
+                    segment[currentIndex] = doUpdateNextSegment();
                 }
 
                 if (segment[index()].getMaxId().equals(currentId.longValue())) {
@@ -159,15 +159,6 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
         }
 
         return currentId.incrementAndGet();
-    }
-
-    @Override
-    public Long getId() {
-        if (asynLoadingSegment) {
-            return asynGetId();
-        } else {
-            return synGetId();
-        }
     }
 
     private boolean isSw() {
@@ -186,28 +177,32 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
         }
     }
 
-    private IdSegment doUpdateNextSegment(String bizTag) {
+    private IdSegment doUpdateNextSegment() {
         try {
-            return updateId(bizTag);
+            return updateId();
         } catch (Exception e) {
             e.printStackTrace();
         }
         return null;
     }
 
-    private IdSegment updateId(String bizTag) throws Exception {
-        /*
-         * String querySql
-         * =String.format("select %s as  p_step , %s as  max_id  from %s where %s=?"
-         * , stepField, maxIdField,tableName,this.bizTagField);
-         */
-        String querySql = "select p_step ,max_id ,last_update_time,current_update_time from id_segment where biz_tag=?";
-        String updateSql = "update id_segment set max_id=?,last_update_time=?,current_update_time=now() where biz_tag=? and max_id=?";
-        /*
-         * String
-         * updateSql=String.format("update %s set %s=? where %s=? and %s=?",
-         * tableName,maxIdField,bizTagField,maxIdField);
-         */
+    private IdSegment updateId() throws Exception {
+
+     // String querySql =
+        // "select p_step ,max_id ,last_update_time,current_update_time from id_segment where biz_tag=?";
+
+        String querySql = String.format("select %s as  p_step , %s as  max_id,%s as last_update_time ,"
+                + " %s as current_update_time   from %s where %s=?", stepField, getColumnName(),
+                this.lastUpdateTimeField, this.updateTimeField, getIncrementerName(), this.bizField);
+
+        
+        // String updateSql =
+        // "update id_segment set max_id=?,last_update_time=?,current_update_time=now() where biz_tag=? and max_id=?";
+
+        String updateSql = String.format("update %s set %s=?  ,%s=?,%s=?  where %s=? and %s=?",
+                getIncrementerName(), getColumnName(), this.lastUpdateTimeField, this.updateTimeField, this.bizField,
+                getColumnName());
+
         final IdSegment currentSegment = new IdSegment();
         this.jdbcTemplate.query(querySql, new String[] { bizTag }, new RowCallbackHandler() {
 
@@ -218,7 +213,6 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
                 Long currentMaxId = null;
                 step = rs.getLong("p_step");
                 currentMaxId = rs.getLong("max_id");
-
                 Date lastUpdateTime = new Date();
                 if( rs.getTimestamp("last_update_time")!=null){
                     lastUpdateTime = (java.util.Date) rs.getTimestamp("last_update_time");
@@ -228,7 +222,6 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
                 if( rs.getTimestamp("current_update_time")!=null){
                      currentUpdateTime = (java.util.Date) rs.getTimestamp("current_update_time");    
                 }
-                
                 currentSegment.setStep(step);
                 currentSegment.setMaxId(currentMaxId);
                 currentSegment.setLastUpdateTime(lastUpdateTime);
@@ -237,8 +230,8 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
             }
         });
         Long newMaxId = currentSegment.getMaxId() + currentSegment.getStep();
-        int row = this.jdbcTemplate.update(updateSql, 
-                new Object[] { newMaxId, currentSegment.getCurrentUpdateTime(),bizTag, currentSegment.getMaxId() });
+        int row = this.jdbcTemplate.update(updateSql, new Object[] { newMaxId, currentSegment.getCurrentUpdateTime(),
+                new Date(), bizTag, currentSegment.getMaxId() });
         if (row == 1) {
             IdSegment newSegment = new IdSegment();
             newSegment.setStep(currentSegment.getStep());
@@ -246,18 +239,36 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
 
             return newSegment;
         } else {
-            return updateId(bizTag); // 递归，直至更新成功
+            return updateId(); // 递归，直至更新成功
         }
 
     }
 
     private JdbcTemplate jdbcTemplate;
 
-    public void setJdbcTemplate(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    private String bizTag;
+
+    private String stepField;
+    private String bizField;
+
+    public void setBizField(String bizField) {
+        this.bizField = bizField;
     }
 
-    private String bizTag;
+    private String lastUpdateTimeField;
+    private String updateTimeField;
+
+    public void setLastUpdateTimeField(String lastUpdateTimeField) {
+        this.lastUpdateTimeField = lastUpdateTimeField;
+    }
+
+    public void setUpdateTimeField(String updateTimeField) {
+        this.updateTimeField = updateTimeField;
+    }
+
+    public void setStepField(String stepField) {
+        this.stepField = stepField;
+    }
 
     public void setBizTag(String bizTag) {
         this.bizTag = bizTag;
@@ -269,25 +280,33 @@ public class MysqlIdLeafServiceImpl implements IdLeafService, InitializingBean {
         this.asynLoadingSegment = asynLoadingSegment;
     }
 
-    /*
-     * private String stepField; private String maxIdField; private String
-     * tableName;
-     * 
-     * private String bizTagField;
-     */
+    private volatile IdSegment[] segment = new IdSegment[2]; // 这两段用来存储每次拉升之后的最大值
+    private volatile boolean sw;
+    private AtomicLong currentId;
+    private static ReentrantLock lock = new ReentrantLock();
 
-    /*
-     * public void setStepField(String stepField) { this.stepField = stepField;
-     * }
-     * 
-     * public void setMaxIdField(String maxIdField) { this.maxIdField =
-     * maxIdField; }
-     * 
-     * public void setTableName(String tableName) { this.tableName = tableName;
-     * }
-     * 
-     * public void setBizTagField(String bizTagField) { this.bizTagField =
-     * bizTagField; }
-     */
+    private void init() {
+        segment[0] = doUpdateNextSegment();
+
+        setSw(false);
+        currentId = new AtomicLong(segment[index()].getMinId()); // 初始id
+
+    }
+
+    @Override
+    public void afterPropertiesSet() {
+        super.afterPropertiesSet();
+        if (this.bizTag == null) {
+            throw new RuntimeException("bizTag must be not null");
+        }
+
+        if (this.jdbcTemplate == null) {
+            this.jdbcTemplate = new JdbcTemplate(getDataSource());
+        }
+        this.init();
+        log.info("init run success...");
+    }
+
+    private static Logger log = LoggerFactory.getLogger(ExtendMySQLMaxValueIncrementer.class);
 
 }

@@ -19,28 +19,7 @@
 		<property name="password" value="mysql" />
 	</bean>
 
-	<bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
-		<property name="dataSource" ref="testDataSource" />
-	</bean>
 
-
-	<bean id="orderIdLeafService" class="com.zhuzhong.idleaf.support.MysqlIdLeafServiceImpl">
-		<property name="jdbcTemplate" ref="jdbcTemplate" />
-		<property name="asynLoadingSegment" value="true" />
-		<property name="bizTag" value="order"></property>
-		<!-- <property name="stepField" value="p_step" /> <property name="maxIdField" 
-			value="max_id" /> <property name="bizTagField" value="biz_tag" /> <property 
-			name="tableName" value="id_segment" /> -->
-	</bean>
-
-
-	<bean id="idLeafService" class="com.zhuzhong.idleaf.support.FacadeIdLeafServiceImpl">
-		<constructor-arg>
-			<map>
-				<entry key="order" value-ref="orderIdLeafService" />
-			</map>
-		</constructor-arg>
-	</bean>
 	<bean id="transactionManager"
 		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
 		<property name="dataSource" ref="testDataSource" />
@@ -57,21 +36,25 @@
 	</bean>
 
 
-	<bean id="extendMysqlMaxValueIncrementer" class="com.zhuzhong.idleaf.support.ExtendMySQLMaxValueIncrementer">
-		
+	<bean id="extendMysqlMaxValueIncrementer" abstract="true"
+		class="com.zhuzhong.idleaf.support.ExtendMySQLMaxValueIncrementer">
 		<property name="dataSource" ref="testDataSource" />
-		<property name="asynLoadingSegment" value="true" />
+		<property name="asynLoadingSegment" value="true"></property>
 		<property name="incrementerName" value="id_segment" />
-		
-		<property name="bizTag" value="order" />
-		
 		<property name="columnName" value="max_id" />
 		<property name="stepField" value="p_step" />
 		<property name="bizField" value="biz_tag"></property>
-	     <property name="lastUpdateTimeField" value="last_update_time" />
-	     
-	     <property name="updateTimeField" value="current_update_time" />
-	     <property name="paddingLength" value="6"></property>
-	     
+		<property name="lastUpdateTimeField" value="last_update_time" />
+		<property name="updateTimeField" value="current_update_time" />
+		<property name="paddingLength" value="6"></property>
+
+	</bean>
+
+	<bean id="orderIncrementer" parent="extendMysqlMaxValueIncrementer">
+		<property name="bizTag" value="order" />
+	</bean>
+	
+	<bean id="productNoIncrementer" parent="extendMysqlMaxValueIncrementer">
+		<property name="bizTag" value="productNo" />
 	</bean>
 </beans>

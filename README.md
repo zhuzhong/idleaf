@@ -24,27 +24,22 @@ Leaf-segment数据库方案 生成唯一orderId的方案的一个实现。
 	Long id=idLeafService.getId()
 ###多个业务id使用方式
 
-    <bean id="orderIdLeafService" 	class="com.zhuzhong.idleaf.support.MysqlIdLeafServiceImpl">
+    <bean id="parentIdLeafService"  abstract="true" 	class="com.zhuzhong.idleaf.support.MysqlIdLeafServiceImpl">
 		<property name="jdbcTemplate" ref="jdbcTemplate" />
 		<property name="asynLoadingSegment" value="true" />
-		<property name="bizTag" value="order"></property>
+		
 	</bean>
 
-	<bean id="productIdLeafService" 	class="com.zhuzhong.idleaf.support.MysqlIdLeafServiceImpl">
-		<property name="jdbcTemplate" ref="jdbcTemplate" />
-		<property name="asynLoadingSegment" value="true" />
+	<bean id="productIdLeafService"  parent="parentIdLeafService">
 		<property name="bizTag" value="product"></property>
 	</bean>
 
-	<bean id="idLeafService" class="com.zhuzhong.idleaf.support.FacadeIdLeafServiceImpl">
-		<constructor-arg>
-			<map>
-				<entry key="order" value-ref="orderIdLeafService" />
-				<entry key="product" value-ref="productIdLeafService" />
-			</map>
-		</constructor-arg>
+	<bean id="orderIdLeafService"  parent="parentIdLeafService">
+		<property name="bizTag" value="order"></property>
 	</bean>
 
+	
 
-    Long orderId=idLeafService.getId("order");
-	Long productId=idLeafService.getId("product");
+
+    Long orderId=orderIdLeafService.getId();
+	Long productId=productIdLeafService.getId();
