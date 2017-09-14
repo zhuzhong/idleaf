@@ -3,7 +3,7 @@
  */
 package com.zhuzhong.idleaf.support;
 
-import com.zhuzhong.idleaf.IdLeafService;
+import org.junit.Test;
 
 /**
  * @author sunff
@@ -11,12 +11,14 @@ import com.zhuzhong.idleaf.IdLeafService;
  */
 public class IgniteIdLeafServiceTest {
 
-	
-	
+	@Test
 	public void getId() {
-		
-		IdLeafService idLeaf=new IgniteIdLeafServiceImpl();
-		while(true) {
+
+		IgniteIdLeafServiceImpl idLeaf = new IgniteIdLeafServiceImpl();
+		idLeaf.setBizTag("order");
+		idLeaf.setZkAddress("localhost:2181");
+		idLeaf.init();
+		while (true) {
 			System.out.println(idLeaf.getId());
 		}
 	}

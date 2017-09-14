@@ -21,7 +21,7 @@ import com.zhuzhong.idleaf.IdLeafService;
  *
  */
 
-public class IgniteIdLeafServiceImpl implements IdLeafService, InitializingBean {
+public class IgniteIdLeafServiceImpl implements IdLeafService {
 
 	private static final String datePattern = "yyyyMMddHHmmss";
 
@@ -45,11 +45,8 @@ public class IgniteIdLeafServiceImpl implements IdLeafService, InitializingBean 
 	public void setZkAddress(String zkAddress) {
 		this.zkAddress = zkAddress;
 	}
-
-	@Override
-	public void afterPropertiesSet() throws Exception {
-		// TODO Auto-generated method stub
-
+	
+	public void init() {
 		SimpleDateFormat s = new SimpleDateFormat(datePattern);
 		Long initValue = Long.valueOf(s.format(new Date())) * 100000;
 		TcpDiscoverySpi spi = new TcpDiscoverySpi();
@@ -70,5 +67,6 @@ public class IgniteIdLeafServiceImpl implements IdLeafService, InitializingBean 
 		);
 
 	}
+
 
 }

@@ -3,7 +3,7 @@
 ##简介
 
 
-对于 [http://tech.meituan.com/MT_Leaf.html?utm_source=tuicool&utm_medium=referral](http://tech.meituan.com/MT_Leaf.html?utm_source=tuicool&utm_medium=referral "Leaf——美团点评分布式ID生成系统") Leaf——美团点评分布式ID生成系统 中介绍的
+对于 [Leaf——美团点评分布式ID生成系统](http://tech.meituan.com/MT_Leaf.html?utm_source=tuicool&utm_medium=referral "Leaf——美团点评分布式ID生成系统") 中介绍的
 Leaf-segment数据库方案 生成唯一orderId的方案的一个实现。
 在实现中使用双buffer优化，在第一个buffer使用50%的时候去加载另一个buffer的数据，这里分同步与异步两种方式，默认是同步加载。对于异步增加参数asynLoadingSegment 设为true.
 在第一个buffer使用完毕之后，切换到另一个buffer，需要去验证该buffer是否加载完成数据，然后进行切换（对于异步加载出了异常则同步加载数据，然后再切换，此时会产生发号的阻塞）。
@@ -86,3 +86,25 @@ spring 框架是无所不能，关于主键的生成它也提供了类似的功�
     }
 
 spring 帮我们提供了三个接口，分别为获取int,long,string 三种数据类型。当然这种方式需要深度使用spring-jdbc框架.
+
+
+
+
+##带基因法id生成
+
+
+基因法生成id,主要思路来自[架构师之路](http://mp.weixin.qq.com/s/PCzRAZa9n4aJwHOX-kAhtA)
+实现接口com.zhuzhong.idleaf.WithGeneIdLeafService
+使用示例
+	
+
+	<bean id="idLeafService"    class="com.zhuzhong.idleaf.support.MysqlIdLeafServiceImpl">
+	    <property name="jdbcTemplate" ref="jdbcTemplate" />
+	    <property name="asynLoadingSegment" value="true" />
+	    <property name="bizTag" value="order"></property>
+	</bean>
+	<bean id="withGeneIdLeafService" class="com.zhuzhong.idleaf.support.WithGeneIdLeafServiceImpl">
+		 <property name="idLeafService" ref="idLeafService" />
+	    <property name="dbSize" value="32" />
+	</bean>
+	Long orderId=withGeneIdLeafService.getId(10000L)
