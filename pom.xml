@@ -12,11 +12,21 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<maven.compiler.source>1.7</maven.compiler.source>
+  		<maven.compiler.target>1.7</maven.compiler.target>
+  		<maven.compiler.compilerVersion>1.7</maven.compiler.compilerVersion>
 		<!-- <log4j.version>2.6.2</log4j.version> -->
 		<spring.version>4.2.4.RELEASE</spring.version>
 	</properties>
 
 	<dependencies>
+
+<!-- https://mvnrepository.com/artifact/org.apache.ignite/ignite-core -->
+<dependency>
+    <groupId>org.apache.ignite</groupId>
+    <artifactId>ignite-zookeeper</artifactId>
+    <version>2.1.0</version>
+</dependency>
 
 
 
