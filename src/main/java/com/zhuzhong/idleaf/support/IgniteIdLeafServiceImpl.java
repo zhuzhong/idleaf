@@ -12,11 +12,10 @@ import org.apache.ignite.Ignition;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.zk.TcpDiscoveryZookeeperIpFinder;
-import org.springframework.beans.factory.InitializingBean;
 
 import com.zhuzhong.idleaf.IdLeafService;
 
-/**
+/**   参考：https://my.oschina.net/liyuj/blog/617472
  * @author sunff
  *
  */
