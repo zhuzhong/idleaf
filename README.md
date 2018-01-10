@@ -1,6 +1,6 @@
-#idleaf
+# idleaf
 
-##简介
+## 简介
 
 
 对于 [Leaf——美团点评分布式ID生成系统](http://tech.meituan.com/MT_Leaf.html?utm_source=tuicool&utm_medium=referral "Leaf——美团点评分布式ID生成系统") 中介绍的
@@ -11,8 +11,8 @@ Leaf-segment数据库方案 生成唯一orderId的方案的一个实现。
 
 
 
-##使用示例
-###一种业务id使用方式
+## 使用示例
+### 一种业务id使用方式
 
 	<bean id="idLeafService" 	class="com.zhuzhong.idleaf.support.MysqlIdLeafServiceImpl">
 		<property name="jdbcTemplate" ref="jdbcTemplate" />
@@ -21,7 +21,7 @@ Leaf-segment数据库方案 生成唯一orderId的方案的一个实现。
 	</bean>
 
 	Long id=idLeafService.getId()
-###多个业务id使用方式
+### 多个业务id使用方式
 
     <bean id="parentIdLeafService"  abstract="true" 	class="com.zhuzhong.idleaf.support.MysqlIdLeafServiceImpl">
 		<property name="jdbcTemplate" ref="jdbcTemplate" />
@@ -43,11 +43,11 @@ Leaf-segment数据库方案 生成唯一orderId的方案的一个实现。
     Long orderId=orderIdLeafService.getId();
 	Long productId=productIdLeafService.getId();
 
-##spring提供的关于主键生成的策略
+## spring提供的关于主键生成的策略
 
 spring 框架是无所不能，关于主键的生成它也提供了类似的功能，相应的类为org.springframework.jdbc.support.incrementer.MySQLMaxValueIncrementer
 但是这个类只保证单jvm的唯一性，在集群环中它会有并发更新的问题，所以我在此写了一个ExtendMySQLMaxValueIncrementer。思路还是沿袭上面的。
-###使用示例
+### 使用示例
 	<bean id="extendMysqlMaxValueIncrementer" abstract="true"
 		class="com.zhuzhong.idleaf.support.ExtendMySQLMaxValueIncrementer">
 		<property name="dataSource" ref="testDataSource" />
@@ -90,7 +90,7 @@ spring 帮我们提供了三个接口，分别为获取int,long,string 三种数
 
 
 
-##带基因法id生成
+## 带基因法id生成
 
 
 基因法生成id,主要思路来自[架构师之路](http://mp.weixin.qq.com/s/PCzRAZa9n4aJwHOX-kAhtA)
