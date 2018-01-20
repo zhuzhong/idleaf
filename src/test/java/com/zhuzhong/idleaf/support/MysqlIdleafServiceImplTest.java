@@ -1,5 +1,5 @@
 /**
- * 
+ *
  */
 package com.zhuzhong.idleaf.support;
 
@@ -11,6 +11,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,13 +27,12 @@ import com.zhuzhong.idleaf.IdLeafService;
 
 /**
  * @author sunff
- * 
  */
 // @Transactional
 // @TransactionConfiguration(transactionManager = "txManager", defaultRollback =
 // true)
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(locations = { "classpath:com/zhuzhong/idleaf/support/applicationContext.xml" })
+@ContextConfiguration(locations = {"classpath:applicationContext.xml"})
 public class MysqlIdleafServiceImplTest {
 
     @Autowired
@@ -41,7 +41,15 @@ public class MysqlIdleafServiceImplTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private TransactionTemplate transactionTemplate;
+
     private BlockingQueue<Long> queue = new LinkedBlockingQueue<Long>(1000);
+
+    @Before
+    public void init() {
+        ((MysqlIdLeafServiceImpl) idLeafService).init();
+    }
 
     @Test
     public void synGetId() {
@@ -49,8 +57,6 @@ public class MysqlIdleafServiceImplTest {
             System.out.println(idLeafService.getId());
     }
 
-    @Autowired
-    private TransactionTemplate transactionTemplate; 
     @Test
     public void batchInsert() {
 
@@ -65,11 +71,7 @@ public class MysqlIdleafServiceImplTest {
             e1.printStackTrace();
         }
         try {
-            
-
             final List<Long> insertedList = list;
-            
-            
             transactionTemplate.execute(new TransactionCallback<Integer>() {
 
                 @Override
@@ -87,10 +89,9 @@ public class MysqlIdleafServiceImplTest {
                     return insertedList.size();
                 }
             });
-           
-        System.out.println("oooolk");
-            
-         
+
+            System.out.println("oooolk");
+
         } catch (Exception e) {
 
         }
@@ -105,15 +106,17 @@ public class MysqlIdleafServiceImplTest {
                 while (true) {
                     try {
                         Long id = queue.take();
+
+                        //
                         // jdbcTemplate.update("insert into id_test(p_id) values(?)",
                         // l);
-                       // System.out.println("id=" + id);
-                      
-                        if (list.size()== 10000) {
+                        // System.out.println("id=" + id);
+
+                        if (list.size() == 10000) {
 
                             final List<Long> insertedList = list;
-                            
-                            
+
+
                             transactionTemplate.execute(new TransactionCallback<Integer>() {
 
                                 @Override
@@ -160,6 +163,6 @@ public class MysqlIdleafServiceImplTest {
             }
         }
 
-       
+
     }
 }
