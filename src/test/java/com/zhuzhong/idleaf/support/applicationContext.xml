@@ -24,7 +24,7 @@
 	</bean>
 
 
-	<bean id="orderIdLeafService" class="com.zhuzhong.idleaf.support.MysqlIdLeafServiceImpl">
+	<bean id="orderIdLeafService" class="com.zhuzhong.idleaf.support.MysqlIdLeafServiceImpl" init-method="init">
 		<property name="jdbcTemplate" ref="jdbcTemplate" />
 		<property name="asynLoadingSegment" value="true" />
 		<property name="bizTag" value="order"></property>
@@ -33,14 +33,6 @@
 			name="tableName" value="id_segment" /> -->
 	</bean>
 
-
-	<bean id="idLeafService" class="com.zhuzhong.idleaf.support.FacadeIdLeafServiceImpl">
-		<constructor-arg>
-			<map>
-				<entry key="order" value-ref="orderIdLeafService" />
-			</map>
-		</constructor-arg>
-	</bean>
 	<bean id="transactionManager"
 		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
 		<property name="dataSource" ref="testDataSource" />
@@ -72,6 +64,5 @@
 	     
 	     <property name="updateTimeField" value="current_update_time" />
 	     <property name="paddingLength" value="6"></property>
-	     
 	</bean>
 </beans>

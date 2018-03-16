@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
@@ -36,6 +37,7 @@ import com.zhuzhong.idleaf.IdLeafService;
 public class MysqlIdleafServiceImplTest {
 
     @Autowired
+    @Qualifier("orderIdLeafService")
     private IdLeafService idLeafService;
 
     @Autowired
