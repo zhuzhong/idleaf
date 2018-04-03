@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.zhuzhong.idleaf.support;
+package com.z.idleaf.support;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -13,7 +13,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.zk.TcpDiscoveryZookeeperIpFinder;
 
-import com.zhuzhong.idleaf.IdLeafService;
+import com.z.idleaf.IdLeafService;
 
 /**   参考：https://my.oschina.net/liyuj/blog/617472
  * @author sunff

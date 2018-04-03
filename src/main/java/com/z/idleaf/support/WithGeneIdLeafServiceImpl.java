@@ -1,10 +1,10 @@
 /**
  * 
  */
-package com.zhuzhong.idleaf.support;
+package com.z.idleaf.support;
 
-import com.zhuzhong.idleaf.IdLeafService;
-import com.zhuzhong.idleaf.WithGeneIdLeafService;
+import com.z.idleaf.IdLeafService;
+import com.z.idleaf.WithGeneIdLeafService;
 
 /**
  * 带有基因的id生成算法，即在分库分表中会使用

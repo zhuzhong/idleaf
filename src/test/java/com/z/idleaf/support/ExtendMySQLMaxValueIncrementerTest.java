@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.zhuzhong.idleaf.support;
+package com.z.idleaf.support;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

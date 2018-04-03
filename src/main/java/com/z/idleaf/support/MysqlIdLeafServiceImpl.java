@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.zhuzhong.idleaf.support;
+package com.z.idleaf.support;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
 
-import com.zhuzhong.idleaf.IdLeafService;
+import com.z.idleaf.IdLeafService;
 
 /**
  * @author sunff

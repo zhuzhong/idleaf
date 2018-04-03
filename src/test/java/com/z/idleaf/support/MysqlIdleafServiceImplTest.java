@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.zhuzhong.idleaf.support;
+package com.z.idleaf.support;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -23,7 +23,7 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import com.zhuzhong.idleaf.IdLeafService;
+import com.z.idleaf.IdLeafService;
 
 /**
  * @author sunff

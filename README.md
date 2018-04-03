@@ -14,7 +14,7 @@ Leaf-segment数据库方案 生成唯一orderId的方案的一个实现。
 ## 使用示例
 ### 一种业务id使用方式
 
-	<bean id="idLeafService" 	class="com.zhuzhong.idleaf.support.MysqlIdLeafServiceImpl">
+	<bean id="idLeafService" 	class="com.z.idleaf.support.MysqlIdLeafServiceImpl">
 		<property name="jdbcTemplate" ref="jdbcTemplate" />
 		<property name="asynLoadingSegment" value="true" />
 		<property name="bizTag" value="order"></property>
@@ -23,7 +23,7 @@ Leaf-segment数据库方案 生成唯一orderId的方案的一个实现。
 	Long id=idLeafService.getId()
 ### 多个业务id使用方式
 
-    <bean id="parentIdLeafService"  abstract="true" 	class="com.zhuzhong.idleaf.support.MysqlIdLeafServiceImpl">
+    <bean id="parentIdLeafService"  abstract="true" 	class="com.z.idleaf.support.MysqlIdLeafServiceImpl">
 		<property name="jdbcTemplate" ref="jdbcTemplate" />
 		<property name="asynLoadingSegment" value="true" />
 		
@@ -49,7 +49,7 @@ spring 框架是无所不能，关于主键的生成它也提供了类似的功�
 但是这个类只保证单jvm的唯一性，在集群环中它会有并发更新的问题，所以我在此写了一个ExtendMySQLMaxValueIncrementer。思路还是沿袭上面的。
 ### 使用示例
 	<bean id="extendMysqlMaxValueIncrementer" abstract="true"
-		class="com.zhuzhong.idleaf.support.ExtendMySQLMaxValueIncrementer">
+		class="com.z.idleaf.support.ExtendMySQLMaxValueIncrementer">
 		<property name="dataSource" ref="testDataSource" />
 		<property name="asynLoadingSegment" value="true"></property>
 		<property name="incrementerName" value="id_segment" />
@@ -94,16 +94,16 @@ spring 帮我们提供了三个接口，分别为获取int,long,string 三种数
 
 
 基因法生成id,主要思路来自[架构师之路](http://mp.weixin.qq.com/s/PCzRAZa9n4aJwHOX-kAhtA)
-实现接口com.zhuzhong.idleaf.WithGeneIdLeafService
+实现接口com.z.idleaf.WithGeneIdLeafService
 使用示例
 	
 
-	<bean id="idLeafService"    class="com.zhuzhong.idleaf.support.MysqlIdLeafServiceImpl">
+	<bean id="idLeafService"    class="com.z.idleaf.support.MysqlIdLeafServiceImpl">
 	    <property name="jdbcTemplate" ref="jdbcTemplate" />
 	    <property name="asynLoadingSegment" value="true" />
 	    <property name="bizTag" value="order"></property>
 	</bean>
-	<bean id="withGeneIdLeafService" class="com.zhuzhong.idleaf.support.WithGeneIdLeafServiceImpl">
+	<bean id="withGeneIdLeafService" class="com.z.idleaf.support.WithGeneIdLeafServiceImpl">
 		 <property name="idLeafService" ref="idLeafService" />
 	    <property name="dbSize" value="32" />
 	</bean>

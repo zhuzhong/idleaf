@@ -1,9 +1,11 @@
 /**
  * 
  */
-package com.zhuzhong.idleaf.support;
+package com.z.idleaf.support;
 
 import org.junit.Test;
+
+import com.z.idleaf.support.IgniteIdLeafServiceImpl;
 
 /**
  * @author sunff

@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.zhuzhong.idleaf.support;
+package com.z.idleaf.support;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;

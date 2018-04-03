@@ -1,13 +1,13 @@
 /**
  * 
  */
-package com.zhuzhong.idleaf.support;
+package com.z.idleaf.support;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
-import com.zhuzhong.idleaf.IdLeafService;
-import com.zhuzhong.idleaf.IdLeafServiceFactory;
+import com.z.idleaf.IdLeafService;
+import com.z.idleaf.IdLeafServiceFactory;
 
 /**
  * @author sunff
