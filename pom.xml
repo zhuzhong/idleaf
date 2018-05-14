@@ -62,13 +62,17 @@
 			<version>1.7.21</version>
 		</dependency>
 		
-		<dependency>
+		<!-- <dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-context-support</artifactId>
 			<version>${spring.version}</version>
-			<scope>test</scope>
+		</dependency> -->
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-context</artifactId>
+			<version>${spring.version}</version>
+			<scope>test</scope> 
 		</dependency>
-		
 		
 		<dependency>
 			<groupId>org.springframework</groupId>
