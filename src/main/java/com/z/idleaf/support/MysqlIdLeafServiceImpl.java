@@ -11,6 +11,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -30,7 +32,7 @@ public class MysqlIdLeafServiceImpl implements IdLeafService {
 	private static Logger log = LoggerFactory.getLogger(MysqlIdLeafServiceImpl.class);
 
 	// 创建线程池
-	private ExecutorService taskExecutor;// = Executors.newSingleThreadExecutor();
+	private ExecutorService taskExecutor;
 
 	public void setTaskExecutor(ExecutorService taskExecutor) {
 		this.taskExecutor = taskExecutor;
@@ -43,9 +45,8 @@ public class MysqlIdLeafServiceImpl implements IdLeafService {
 	private volatile IdSegment[] segment = new IdSegment[2]; // 这两段用来存储每次拉升之后的最大值
 	private volatile boolean sw;
 	private AtomicLong currentId;
-	private static ReentrantLock lock = new ReentrantLock();
-
-	// private static Condition swContion = lock.newCondition();
+	private ReentrantLock lock = new ReentrantLock(); // 功能性严重bug #5 一个实例一把锁
+	private volatile FutureTask<Boolean> asynLoadSegmentTask = null;
 
 	public void init() {
 		if (this.bizTag == null) {
@@ -65,17 +66,57 @@ public class MysqlIdLeafServiceImpl implements IdLeafService {
 		log.info("init run success...");
 	}
 
-	FutureTask<Boolean> asynLoadSegmentTask = null;
+	/*
+	 * private Long asynGetId() {
+	 * 
+	 * if (segment[index()].getMiddleId().equals(currentId.longValue()) ||
+	 * segment[index()].getMaxId().equals(currentId.longValue())) { try {
+	 * lock.lock(); if
+	 * (segment[index()].getMiddleId().equals(currentId.longValue())) { // 前一段使用了50%
+	 * asynLoadSegmentTask = new FutureTask<>(new Callable<Boolean>() {
+	 * 
+	 * @Override public Boolean call() throws Exception { final int currentIndex =
+	 * reIndex(); segment[currentIndex] = doUpdateNextSegment(bizTag); return true;
+	 * }
+	 * 
+	 * }); taskExecutor.submit(asynLoadSegmentTask); } if
+	 * (segment[index()].getMaxId().equals(currentId.longValue())) {
+	 * 
+	 * 
+	 * final int currentIndex = index(); segment[currentIndex] =
+	 * doUpdateNextSegment(bizTag);
+	 * 
+	 * boolean loadingResult; try { loadingResult = asynLoadSegmentTask.get(); if
+	 * (loadingResult) { setSw(!isSw()); // 切换 currentId = new
+	 * AtomicLong(segment[index()].getMinId()); // 进行切换 } } catch
+	 * (InterruptedException e) {
+	 * 
+	 * e.printStackTrace(); // 强制同步切换 final int currentIndex = reIndex();
+	 * segment[currentIndex] = doUpdateNextSegment(bizTag); setSw(!isSw()); // 切换
+	 * currentId = new AtomicLong(segment[index()].getMinId()); // 进行切换 } catch
+	 * (ExecutionException e) {
+	 * 
+	 * e.printStackTrace(); // 强制同步切换 final int currentIndex = reIndex();
+	 * segment[currentIndex] = doUpdateNextSegment(bizTag); setSw(!isSw()); // 切换
+	 * currentId = new AtomicLong(segment[index()].getMinId()); // 进行切换 }
+	 * 
+	 * }
+	 * 
+	 * } finally { lock.unlock(); } }
+	 * 
+	 * return currentId.incrementAndGet();
+	 * 
+	 * }
+	 */
 
-	private Long asynGetId() {
+	private Long asynGetId2() {
 
-		if (segment[index()].getMiddleId().equals(currentId.longValue())
-				|| segment[index()].getMaxId().equals(currentId.longValue())) {
+		if (segment[index()].getMiddleId() <= currentId.longValue() && isNotLoadOfNextsegment()
+				&& asynLoadSegmentTask == null) {
 			try {
 				lock.lock();
-				if (segment[index()].getMiddleId().equals(currentId.longValue())) {
+				if (segment[index()].getMiddleId() <= currentId.longValue()) {
 					// 前一段使用了50%
-
 					asynLoadSegmentTask = new FutureTask<>(new Callable<Boolean>() {
 
 						@Override
@@ -88,39 +129,44 @@ public class MysqlIdLeafServiceImpl implements IdLeafService {
 					});
 					taskExecutor.submit(asynLoadSegmentTask);
 				}
-				if (segment[index()].getMaxId().equals(currentId.longValue())) {
+
+			} finally {
+				lock.unlock();
+			}
+		}
+
+		if (segment[index()].getMaxId() <= currentId.longValue()) {
+			try {
+				lock.lock();
+				if (segment[index()].getMaxId() <= currentId.longValue()) {
 
 					/*
 					 * final int currentIndex = index(); segment[currentIndex] =
 					 * doUpdateNextSegment(bizTag);
 					 */
-					boolean loadingResult;
+					boolean loadingResult=false;
 					try {
-						loadingResult = asynLoadSegmentTask.get();
+						loadingResult = asynLoadSegmentTask.get(500,TimeUnit.MICROSECONDS);
 						if (loadingResult) {
 							setSw(!isSw()); // 切换
 							currentId = new AtomicLong(segment[index()].getMinId()); // 进行切换
+							asynLoadSegmentTask=null;
 						}
-					} catch (InterruptedException e) {
-
+					} catch (Exception e) {
 						e.printStackTrace();
-						// 强制同步切换
-						final int currentIndex = reIndex();
-						segment[currentIndex] = doUpdateNextSegment(bizTag);
-						setSw(!isSw()); // 切换
-						currentId = new AtomicLong(segment[index()].getMinId()); // 进行切换
-					} catch (ExecutionException e) {
-
-						e.printStackTrace();
-						// 强制同步切换
-						final int currentIndex = reIndex();
-						segment[currentIndex] = doUpdateNextSegment(bizTag);
+						loadingResult=false;
+						asynLoadSegmentTask=null;
+					} 
+					if(!loadingResult) {
+						while (isNotLoadOfNextsegment()) {
+							// 强制同步切换
+							final int currentIndex = reIndex();
+							segment[currentIndex] = doUpdateNextSegment(bizTag);
+						}
 						setSw(!isSw()); // 切换
 						currentId = new AtomicLong(segment[index()].getMinId()); // 进行切换
 					}
-
 				}
-
 			} finally {
 				lock.unlock();
 			}
@@ -130,27 +176,39 @@ public class MysqlIdLeafServiceImpl implements IdLeafService {
 
 	}
 
-	private int reIndex() {
-		if (isSw()) {
-			return 0;
-		} else {
-			return 1;
+	private boolean isNotLoadOfNextsegment() {
+		if (segment[reIndex()] == null) {
+			return true;
 		}
+		if (segment[reIndex()].getMaxId() < segment[index()].getMinId()) {
+			return true;
+		}
+		return false;
 	}
 
-	private Long synGetId() {
-		if (segment[index()].getMiddleId().equals(currentId.longValue())
-				|| segment[index()].getMaxId().equals(currentId.longValue())) {
+	private long synGetId2() {
+		if (segment[index()].getMiddleId() <= currentId.longValue() && isNotLoadOfNextsegment()) { // 需要加载了
 			try {
 				lock.lock();
-
-				if (segment[index()].getMiddleId().equals(currentId.longValue())) {
-					// 使用50%进行加载
+				if (segment[index()].getMiddleId() <= currentId.longValue() && isNotLoadOfNextsegment()) {
+					// 使用50%以上，并且没有加载成功过，就进行加载
 					final int currentIndex = reIndex();
 					segment[currentIndex] = doUpdateNextSegment(bizTag);
 				}
+			} finally {
+				lock.unlock();
+			}
+		}
 
-				if (segment[index()].getMaxId().equals(currentId.longValue())) {
+		if (segment[index()].getMaxId() <= currentId.longValue()) { // 需要进行切换了
+			try {
+				lock.lock();
+				if (segment[index()].getMaxId() <= currentId.longValue()) {
+					while (isNotLoadOfNextsegment()) {
+						// 使用50%以上，并且没有加载成功过，就进行加载,直到在功
+						final int currentIndex = reIndex();
+						segment[currentIndex] = doUpdateNextSegment(bizTag);
+					}
 					setSw(!isSw()); // 切换
 					currentId = new AtomicLong(segment[index()].getMinId()); // 进行切换
 
@@ -160,16 +218,37 @@ public class MysqlIdLeafServiceImpl implements IdLeafService {
 				lock.unlock();
 			}
 		}
-
 		return currentId.incrementAndGet();
+
 	}
+
+	/*
+	 * private Long synGetId() { if
+	 * (segment[index()].getMiddleId().equals(currentId.longValue()) ||
+	 * segment[index()].getMaxId().equals(currentId.longValue())) { try {
+	 * lock.lock();
+	 * 
+	 * if (segment[index()].getMiddleId().equals(currentId.longValue())) { //
+	 * 使用50%进行加载 final int currentIndex = reIndex(); segment[currentIndex] =
+	 * doUpdateNextSegment(bizTag); }
+	 * 
+	 * if (segment[index()].getMaxId().equals(currentId.longValue())) {
+	 * setSw(!isSw()); // 切换 currentId = new
+	 * AtomicLong(segment[index()].getMinId()); // 进行切换
+	 * 
+	 * }
+	 * 
+	 * } finally { lock.unlock(); } }
+	 * 
+	 * return currentId.incrementAndGet(); }
+	 */
 
 	@Override
 	public Long getId() {
 		if (asynLoadingSegment) {
-			return asynGetId();
+			return asynGetId2();
 		} else {
-			return synGetId();
+			return synGetId2();
 		}
 	}
 
@@ -186,6 +265,14 @@ public class MysqlIdLeafServiceImpl implements IdLeafService {
 			return 1;
 		} else {
 			return 0;
+		}
+	}
+
+	private int reIndex() {
+		if (isSw()) {
+			return 0;
+		} else {
+			return 1;
 		}
 	}
 
@@ -248,7 +335,8 @@ public class MysqlIdLeafServiceImpl implements IdLeafService {
 
 			return newSegment;
 		} else {
-			return updateId(bizTag); // 递归，直至更新成功
+			//return updateId(bizTag); // 递归，直至更新成功
+			return null;
 		}
 
 	}
