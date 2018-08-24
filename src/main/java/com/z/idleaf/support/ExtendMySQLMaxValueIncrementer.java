@@ -27,6 +27,7 @@ import org.springframework.jdbc.support.incrementer.AbstractColumnMaxValueIncrem
  * @author sunff
  * 
  */
+@Deprecated
 public class ExtendMySQLMaxValueIncrementer extends AbstractColumnMaxValueIncrementer {
 
     /**
