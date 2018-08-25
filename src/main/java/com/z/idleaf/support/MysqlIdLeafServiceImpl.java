@@ -117,17 +117,20 @@ public class MysqlIdLeafServiceImpl implements IdLeafService {
 				lock.lock();
 				if (segment[index()].getMiddleId() <= currentId.longValue()) {
 					// 前一段使用了50%
+
 					asynLoadSegmentTask = new FutureTask<>(new Callable<Boolean>() {
 
 						@Override
 						public Boolean call() throws Exception {
 							final int currentIndex = reIndex();
 							segment[currentIndex] = doUpdateNextSegment(bizTag);
+							// System.out.println("异步job执行完毕");
 							return true;
 						}
 
 					});
 					taskExecutor.submit(asynLoadSegmentTask);
+					System.out.println("init asynLoadSegmentTask...，taskExecutor=" + taskExecutor.toString());
 				}
 
 			} finally {
@@ -144,20 +147,21 @@ public class MysqlIdLeafServiceImpl implements IdLeafService {
 					 * final int currentIndex = index(); segment[currentIndex] =
 					 * doUpdateNextSegment(bizTag);
 					 */
-					boolean loadingResult=false;
+					boolean loadingResult = false;
 					try {
-						loadingResult = asynLoadSegmentTask.get(500,TimeUnit.MICROSECONDS);
+						loadingResult = asynLoadSegmentTask.get(500, TimeUnit.MILLISECONDS);
 						if (loadingResult) {
 							setSw(!isSw()); // 切换
 							currentId = new AtomicLong(segment[index()].getMinId()); // 进行切换
-							asynLoadSegmentTask=null;
+							asynLoadSegmentTask = null;
 						}
 					} catch (Exception e) {
 						e.printStackTrace();
-						loadingResult=false;
-						asynLoadSegmentTask=null;
-					} 
-					if(!loadingResult) {
+						//System.out.println("异常则设置asynLoadSegmentTask=null");
+						loadingResult = false;
+						asynLoadSegmentTask = null;
+					}
+					if (!loadingResult) {
 						while (isNotLoadOfNextsegment()) {
 							// 强制同步切换
 							final int currentIndex = reIndex();
@@ -165,6 +169,7 @@ public class MysqlIdLeafServiceImpl implements IdLeafService {
 						}
 						setSw(!isSw()); // 切换
 						currentId = new AtomicLong(segment[index()].getMinId()); // 进行切换
+
 					}
 				}
 			} finally {
@@ -180,7 +185,7 @@ public class MysqlIdLeafServiceImpl implements IdLeafService {
 		if (segment[reIndex()] == null) {
 			return true;
 		}
-		if (segment[reIndex()].getMaxId() < segment[index()].getMinId()) {
+		if (segment[reIndex()].getMinId() < segment[index()].getMinId()) {
 			return true;
 		}
 		return false;
@@ -335,7 +340,7 @@ public class MysqlIdLeafServiceImpl implements IdLeafService {
 
 			return newSegment;
 		} else {
-			//return updateId(bizTag); // 递归，直至更新成功
+			// return updateId(bizTag); // 递归，直至更新成功
 			return null;
 		}
 

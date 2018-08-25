@@ -73,4 +73,10 @@ public class IdSegment {
         this.step = step;
     }
 
+	@Override
+	public String toString() {
+		return "IdSegment [minId=" + minId + ", maxId=" + maxId + ", step=" + step + ", middleId=" + middleId
+				+ ", lastUpdateTime=" + lastUpdateTime + ", currentUpdateTime=" + currentUpdateTime + "]";
+	}
+
 }

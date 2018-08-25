@@ -33,7 +33,7 @@ import com.z.idleaf.IdLeafService;
 // @TransactionConfiguration(transactionManager = "txManager", defaultRollback =
 // true)
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(locations = { "classpath:com/zhuzhong/idleaf/support/applicationContext.xml" })
+@ContextConfiguration(locations = { "classpath:com/z/idleaf/support/applicationContext.xml" })
 public class MysqlIdleafServiceImplTest {
 
     @Autowired
